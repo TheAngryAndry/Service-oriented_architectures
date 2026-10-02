@@ -1,0 +1,12 @@
+[package]
+name = "architecture-tools"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+
+[[bin]]
+name = "render-architecture"
+path = "render-architecture.rs"
+
+[dependencies]
+serde_json = "1"

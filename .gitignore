@@ -4,6 +4,13 @@
 !/.gitignore
 !/README.md
 !/Dockerfile
+!/.dockerignore
 !/docker-compose.yml
-!/services/orders/app.py
+!/services/orders/Cargo.toml
+!/services/orders/Cargo.lock
+!/services/orders/src/**
 !/docs/architecture/container.png
+!/docs/architecture/container.dot
+!/scripts/Cargo.toml
+!/scripts/Cargo.lock
+!/scripts/render-architecture.rs

@@ -1,0 +1,82 @@
+// C4 Level 2: names, element types, technologies, responsibilities, relationships.
+// Single source of truth for all elements and relationships.
+// Readable two-view SVG + PNG: cargo run --manifest-path scripts/Cargo.toml --bin render-architecture
+// Positions and arrow lanes are defined in the renderer, not by the legacy dot layout below.
+digraph Marketplace {
+  graph [label="Маркетплейс — C4 Container (Level 2)\nЦелевая архитектура · реализован только /health в Orders",
+         labelloc=t, fontsize=24, fontname="Arial", bgcolor="white",
+         rankdir=TB, nodesep=0.5, ranksep=1.05, pad=0.4, compound=true, splines=polyline];
+  node [shape=box, style="rounded,filled", fillcolor="#2166A5", color="#164976",
+        fontcolor="white", fontname="Arial", fontsize=13, margin="0.18,0.12"];
+  edge [fontname="Arial", fontsize=10, color="#475569", fontcolor="#334155", arrowsize=0.7];
+
+  buyer [label="Покупатель\n[Person]\nПросматривает ленту, оформляет заказ", fillcolor="#475569"];
+  seller [label="Продавец\n[Person]\nУправляет своими товарами", fillcolor="#475569"];
+  psp [label="Платёжный провайдер\n[External Software System]\nПринимает платежи и возвраты", fillcolor="#64748B"];
+  email [label="Email-провайдер\n[External Software System]\nДоставляет письма", fillcolor="#64748B"];
+
+  subgraph cluster_marketplace {
+    label="Marketplace [Software System Boundary]";
+    fontname="Arial"; fontsize=19; color="#64748B"; style="rounded,dashed";
+    margin=24;
+
+    web [label="Web App\n[Container: React / TypeScript]\nИнтерфейс покупателя и продавца"];
+    gateway [label="API Gateway\n[Container: Nginx]\nМаршрутизация API, TLS, rate limiting"];
+
+    users [label="Users\n[Container: Rust HTTP API]\nАккаунты, роли, контакты, интересы"];
+    catalog [label="Catalog\n[Container: Rust HTTP API]\nТовары, цены, остатки, резервы"];
+    feed [label="Feed\n[Container: Rust HTTP API]\nПерсональная лента и просмотры"];
+    orders [label="Orders\n[Container: Rust HTTP API]\nЖизненный цикл заказа, saga\nРЕАЛИЗОВАН ТОЛЬКО /health", penwidth=3];
+    payments [label="Payments\n[Container: Rust HTTP API]\nРасчёт, платежи, комиссия, возвраты"];
+    notifications [label="Notifications\n[Container: Rust worker]\nШаблоны, отправка и повторы"];
+
+    users_db [label="Users DB\n[Container: PostgreSQL 17]\nПрофили, роли, контакты, интересы", shape=cylinder, fillcolor="#DDECF8", fontcolor="#143C60"];
+    catalog_db [label="Catalog DB\n[Container: PostgreSQL 17]\nКарточки, цены, остатки, резервы", shape=cylinder, fillcolor="#DDECF8", fontcolor="#143C60"];
+    feed_db [label="Feed DB\n[Container: PostgreSQL 17]\nПроекции, интересы, просмотры", shape=cylinder, fillcolor="#DDECF8", fontcolor="#143C60"];
+    orders_db [label="Orders DB\n[Container: PostgreSQL 17]\nЗаказы, снимки, статусы", shape=cylinder, fillcolor="#DDECF8", fontcolor="#143C60"];
+    payments_db [label="Payments DB\n[Container: PostgreSQL 17]\nПопытки, журнал, комиссии, возвраты", shape=cylinder, fillcolor="#DDECF8", fontcolor="#143C60"];
+    notifications_db [label="Notifications DB\n[Container: PostgreSQL 17]\nШаблоны, задания, история доставки", shape=cylinder, fillcolor="#DDECF8", fontcolor="#143C60"];
+    broker [label="Event Broker\n[Container: RabbitMQ 4]\nНадёжная доставка событий\nОтдельные очереди потребителей и DLQ", fillcolor="#73529B"];
+
+    { rank=same; users; catalog; feed; orders; payments; notifications; }
+    { rank=same; users_db; catalog_db; feed_db; orders_db; payments_db; notifications_db; }
+
+    web -> gateway [label="Вызывает API\nHTTPS / JSON"];
+    gateway -> users [label="Вход, профиль\nHTTP / JSON"];
+    gateway -> catalog [label="Чтение / управление товарами\nHTTP / JSON"];
+    gateway -> feed [label="Лента / просмотры\nHTTP / JSON"];
+    gateway -> orders [label="Оформление / статус\nHTTP / JSON"];
+    gateway -> payments [label="Статус / ссылка оплаты; webhook\nHTTP / JSON"];
+    orders -> catalog [label="Проверка цены, резерв,\nподтверждение / освобождение\nHTTP / JSON", constraint=false];
+    orders -> users [label="Покупатель и адрес\nHTTP / JSON", constraint=false];
+    notifications -> users [label="Email и настройки\nHTTP / JSON", constraint=false];
+
+    users -> users_db [label="Читает / пишет\nSQL / TCP"];
+    catalog -> catalog_db [label="Читает / пишет\nSQL / TCP"];
+    feed -> feed_db [label="Читает / пишет\nSQL / TCP"];
+    orders -> orders_db [label="Читает / пишет\nSQL / TCP"];
+    payments -> payments_db [label="Читает / пишет\nSQL / TCP"];
+    notifications -> notifications_db [label="Читает / пишет\nSQL / TCP"];
+
+    // Invisible layout edge does not represent an architectural dependency.
+    orders_db -> broker [style=invis];
+    users -> broker [label="PreferencesChanged\nAMQP · async", style=dashed, color="#73529B"];
+    catalog -> broker [label="ProductChanged /\nProductUnpublished\nAMQP · async", style=dashed, color="#73529B"];
+    orders -> broker [label="OrderCreated / OrderCancelled /\nOrderStatusChanged\nAMQP · async", style=dashed, color="#73529B"];
+    payments -> broker [label="PaymentSucceeded / Failed / Refunded\nAMQP · async", style=dashed, color="#73529B"];
+    broker -> feed [label="События каталога\nи интересов\nAMQP · async", style=dashed, color="#73529B", constraint=false];
+    broker -> payments [label="Создание / отмена заказа\nAMQP · async", style=dashed, color="#73529B", constraint=false];
+    broker -> orders [label="Результат оплаты / возврата\nAMQP · async", style=dashed, color="#73529B", constraint=false];
+    broker -> notifications [label="Статус заказа\nAMQP · async", style=dashed, color="#73529B", constraint=false];
+  }
+
+  buyer -> web [label="Покупает\nHTTPS"];
+  seller -> web [label="Управляет каталогом\nHTTPS"];
+  payments -> psp [label="Платёж / статус / возврат\nHTTPS / JSON"];
+  psp -> gateway [label="Результат платежа\nHTTPS webhook · async", style=dashed, constraint=false];
+  notifications -> email [label="Отправляет письмо\nHTTPS API"];
+
+  legend [shape=note, fillcolor="#F1F5F9", fontcolor="#334155", color="#94A3B8",
+          label="ЛЕГЕНДА\nСиний: приложение · цилиндр: приватная БД\nФиолетовый: брокер · серый: внешняя система / человек\nСплошная стрелка: синхронно · пунктир: асинхронно\nСтрелка = направление запроса / события; ответ опущен\nВсе контейнеры, кроме каркаса Orders, — только проект"];
+  broker -> legend [style=invis];
+}

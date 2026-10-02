@@ -1,0 +1,7 @@
+**
+!services/
+!services/orders/
+!services/orders/Cargo.toml
+!services/orders/Cargo.lock
+!services/orders/src/
+!services/orders/src/**
