@@ -1,0 +1,9 @@
+*
+!*/
+
+!/.gitignore
+!/README.md
+!/Dockerfile
+!/docker-compose.yml
+!/services/orders/app.py
+!/docs/architecture/container.png
