@@ -7,7 +7,8 @@
 !/Dockerfile
 !/docker-compose.yml
 !/services/
-!/scripts/
+!/.cargo/
+!/tools/
 !/tests/
 
 /services/*
@@ -20,16 +21,17 @@
 !/services/orders/openapi/
 !/services/orders/migrations/
 
-/scripts/*
-!/scripts/generate-api.sh
-!/scripts/demo.py
-!/scripts/check-logs.py
-!/scripts/smoke-test.sh
-!/scripts/test.sh
+/.cargo/*
+!/.cargo/config.toml
+
+/tools/*
+!/tools/Cargo.toml
+!/tools/Cargo.lock
+!/tools/src/
+!/tools/tests/
 
 /tests/*
 !/tests/Dockerfile
-!/tests/e2e.py
 
 # Build output includes all generated OpenAPI DTOs and routes.
 **/target/

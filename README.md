@@ -19,11 +19,15 @@ curl -i http://localhost:8080/health
 после его успешного завершения запускается API. `/health` проверяет соединение с БД.
 Первичная сборка загружает Rust-зависимости и может занять несколько минут.
 
+Сеть Compose использует подсеть `172.18.0.0/16` и Linux-мост `br-soa-hw2`.
+При использовании TUN-VPN исключайте из перехвата только внутренние адреса
+Docker. Исключение интерфейса целиком отправит внешний трафик контейнеров мимо VPN.
+
 - API: `http://localhost:8080`.
 - Контракт: [services/orders/openapi/openapi.json](services/orders/openapi/openapi.json),
   также выдаётся через `GET /openapi.json`; его можно импортировать в Postman.
 - Логи: `docker compose logs -f orders`.
-- Проверка логов: `docker compose logs --no-log-prefix --no-color orders | python3 scripts/check-logs.py`.
+- Проверка логов: `docker compose logs --no-log-prefix --no-color orders | cargo xtask check-logs`.
 - Миграции: `docker compose logs migrate`.
 - Остановка с сохранением данных: `docker compose down`.
 
@@ -35,12 +39,31 @@ Access token действует 20 минут, refresh token — 14 дней.
 
 ## Проверки и демонстрация
 
+Все утилиты и тесты написаны на Rust. Команды `cargo xtask` запускаются из корня
+репозитория и требуют Rust 1.91+. Для контейнерного E2E достаточно Docker:
+тесты собираются в отдельный Rust-бинарник, который обращается к HTTP и
+PostgreSQL напрямую через Reqwest и SQLx.
+
+```sh
+# Полная проверка: модульные тесты обоих пакетов, запуск системы и E2E:
+cargo xtask test
+# Если Docker на хосте требует sudo (Cargo запускается обычным пользователем):
+cargo xtask test --sudo
+
+# Быстрая проверка запущенного API:
+cargo xtask smoke
+
+# Проверки самих утилит без запущенной системы:
+cargo test --locked --manifest-path tools/Cargo.toml
+cargo clippy --locked --manifest-path tools/Cargo.toml --all-targets -- -D warnings
+```
+
 ```sh
 # Полные HTTP + PostgreSQL сценарии на запущенной системе:
 docker compose --profile test run --build --rm e2e
 
 # Демонстрация создания товара, промокода, заказа, обновления и отмены:
-python3 scripts/demo.py
+cargo xtask demo
 
 # SELECT обязателен на защите:
 docker compose exec -T postgres psql -U marketplace -d marketplace -c \
@@ -58,10 +81,22 @@ E2E-тесты создают уникальные учебные аккаунт
 чтобы проверить лимиты без ожидания. Таблицы и существующие данные не очищаются.
 При тестировании оставьте `ORDER_INTERVAL_MINUTES=1`.
 
+Для нативного E2E укажите `API_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE`,
+`PGPASSWORD` и `JWT_SECRET` той же тестовой системы. Вместо PG-переменных
+поддерживается `DATABASE_URL`. Затем выполните:
+
+```sh
+cargo test --locked --manifest-path tools/Cargo.toml --test e2e -- --ignored
+```
+
+Без `--ignored` E2E пропускаются, чтобы обычный `cargo test` не менял БД.
+`API_URL` также задаёт адрес для `cargo xtask demo` и `cargo xtask smoke`;
+по умолчанию используется `http://localhost:8080`.
+
 ## Контракт и кодогенерация
 
 ```sh
-sh scripts/generate-api.sh
+cargo xtask generate-api
 # То же выполняется автоматически при обычной сборке:
 cargo build --locked --manifest-path services/orders/Cargo.toml
 cargo test --locked --manifest-path services/orders/Cargo.toml
@@ -143,7 +178,8 @@ PUT товара заменяет все обязательные поля, от
 | `services/orders/src/catalog.rs` | Товары и создание промокодов |
 | `services/orders/src/orders.rs` | Транзакционные бизнес-операции |
 | `services/orders/migrations` | Версионированные миграции Flyway |
-| `tests/e2e.py` | HTTP + SQL проверки, включая конкурентные операции |
+| `tools/src` | Rust-команды демонстрации, smoke, проверки логов и запуска тестов |
+| `tools/tests/e2e.rs` | HTTP + SQL проверки, включая конкурентные операции |
 
 Логи каждого запроса содержат UUID request_id, method, endpoint, status_code,
 duration_ms, user_id (или null), timestamp. Для POST/PUT/DELETE сохраняется

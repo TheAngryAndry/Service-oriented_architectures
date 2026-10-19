@@ -61,5 +61,14 @@ services:
       orders:
         condition: service_healthy
 
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+    driver_opts:
+      # Stable interface name for the host's VPN exclusions.
+      com.docker.network.bridge.name: br-soa-hw2
+
 volumes:
   marketplace-data:
