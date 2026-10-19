@@ -1,15 +1,12 @@
-# Only submission files are tracked; local notes stay on disk.
+# Publish only the homework submission; keep conditions and helpers local.
 /*
 !/.gitignore
 !/.dockerignore
-!/.env.example
 !/README.md
 !/Dockerfile
 !/docker-compose.yml
 !/services/
-!/.cargo/
-!/tools/
-!/tests/
+!/docs/
 
 /services/*
 !/services/orders/
@@ -21,23 +18,15 @@
 !/services/orders/openapi/
 !/services/orders/migrations/
 
-/.cargo/*
-!/.cargo/config.toml
+/docs/*
+!/docs/architecture/
+/docs/architecture/*
+!/docs/architecture/container.png
 
-/tools/*
-!/tools/Cargo.toml
-!/tools/Cargo.lock
-!/tools/src/
-!/tools/tests/
-
-/tests/*
-!/tests/Dockerfile
-
-# Build output includes all generated OpenAPI DTOs and routes.
+# Generated OpenAPI DTOs/routes and other build output stay local.
 **/target/
 **/__pycache__/
 .env
 .env.*
-!/.env.example
 *.log
 .DS_Store

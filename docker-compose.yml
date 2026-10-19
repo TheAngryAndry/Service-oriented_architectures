@@ -45,21 +45,6 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
-  e2e:
-    profiles: [test]
-    build:
-      context: .
-      dockerfile: tests/Dockerfile
-    environment:
-      API_URL: http://orders:8080
-      PGHOST: postgres
-      PGUSER: marketplace
-      PGPASSWORD: ${POSTGRES_PASSWORD:-marketplace-local}
-      PGDATABASE: marketplace
-      JWT_SECRET: ${JWT_SECRET:-local-homework-secret-change-before-deploy-32-bytes}
-    depends_on:
-      orders:
-        condition: service_healthy
 
 networks:
   default:
