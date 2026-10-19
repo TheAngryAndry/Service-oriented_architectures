@@ -1,0 +1,1976 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Marketplace API — ДЗ 2",
+    "version": "2.0.0",
+    "description": "Контракт является источником DTO, маршрутов, ролей и валидации. Денежные суммы — JSON number с двумя десятичными знаками. Повтор product_id в заказе запрещён (VALIDATION_ERROR). При обновлении сохраняется snapshot цены оставшихся товаров, новые получают текущую цену. Промокод при обновлении сохраняет собственное использование; истёкший/отключённый даёт PROMO_CODE_INVALID, недостаточная сумма снимает скидку."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "summary": "Проверка HTTP и PostgreSQL",
+        "description": "Проверка HTTP и PostgreSQL.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "register",
+        "summary": "Регистрация USER или SELLER; ADMIN назначается через БД",
+        "description": "Регистрация USER или SELLER; ADMIN назначается через БД.",
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Вход",
+        "description": "Вход.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "refresh",
+        "summary": "Ротация refresh token; повторное использование запрещено",
+        "description": "Ротация refresh token; повторное использование запрещено.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products": {
+      "post": {
+        "operationId": "create_product",
+        "summary": "Создать товар, seller_id берётся из JWT",
+        "description": "Создать товар, seller_id берётся из JWT. Роли: SELLER, ADMIN.",
+        "x-roles": [
+          "SELLER",
+          "ADMIN"
+        ],
+        "responses": {
+          "201": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductCreate"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "list_products",
+        "summary": "Список всех товаров, включая ARCHIVED",
+        "description": "Список всех товаров, включая ARCHIVED. Роли: USER, SELLER, ADMIN.",
+        "x-roles": [
+          "USER",
+          "SELLER",
+          "ADMIN"
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0,
+              "maximum": 2147483647,
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ProductStatus"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ]
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "operationId": "get_product",
+        "summary": "Получить любой товар",
+        "description": "Получить любой товар. Роли: USER, SELLER, ADMIN.",
+        "x-roles": [
+          "USER",
+          "SELLER",
+          "ADMIN"
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "update_product",
+        "summary": "Заменить товар; SELLER — только собственный",
+        "description": "Заменить товар; SELLER — только собственный. Роли: SELLER, ADMIN.",
+        "x-roles": [
+          "SELLER",
+          "ADMIN"
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "delete_product",
+        "summary": "Архивировать товар; SELLER — только собственный",
+        "description": "Архивировать товар; SELLER — только собственный. Роли: SELLER, ADMIN.",
+        "x-roles": [
+          "SELLER",
+          "ADMIN"
+        ],
+        "responses": {
+          "204": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/orders": {
+      "post": {
+        "operationId": "create_order",
+        "summary": "Создать заказ; сначала лимит частоты, затем активный заказ, каталог, остатки и промокод",
+        "description": "Создать заказ; сначала лимит частоты, затем активный заказ, каталог, остатки и промокод. Роли: USER, ADMIN.",
+        "x-roles": [
+          "USER",
+          "ADMIN"
+        ],
+        "responses": {
+          "201": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "operationId": "get_order",
+        "summary": "Получить заказ; USER — только собственный, ADMIN — любой",
+        "description": "Получить заказ; USER — только собственный, ADMIN — любой. Роли: USER, ADMIN.",
+        "x-roles": [
+          "USER",
+          "ADMIN"
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "put": {
+        "operationId": "update_order",
+        "summary": "Заменить позиции CREATED; USER — только собственный, ADMIN — любой",
+        "description": "Заменить позиции CREATED; USER — только собственный, ADMIN — любой. Роли: USER, ADMIN.",
+        "x-roles": [
+          "USER",
+          "ADMIN"
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderUpdate"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/orders/{id}/cancel": {
+      "post": {
+        "operationId": "cancel_order",
+        "summary": "Отменить CREATED или PAYMENT_PENDING и вернуть резерв и использование промокода",
+        "description": "Отменить CREATED или PAYMENT_PENDING и вернуть резерв и использование промокода. Роли: USER, ADMIN.",
+        "x-roles": [
+          "USER",
+          "ADMIN"
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/orders/{id}/status": {
+      "post": {
+        "operationId": "transition_order",
+        "summary": "Последовательный переход CREATED → PAYMENT_PENDING → PAID → SHIPPED → COMPLETED; для отмены используется /cancel",
+        "description": "Последовательный переход CREATED → PAYMENT_PENDING → PAID → SHIPPED → COMPLETED; для отмены используется /cancel. Роли: ADMIN.",
+        "x-roles": [
+          "ADMIN"
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderTransition"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/promo-codes": {
+      "post": {
+        "operationId": "create_promo",
+        "summary": "Создать промокод; процент выше 70 означает скидку 0, полную цену",
+        "description": "Создать промокод; процент выше 70 означает скидку 0, полную цену. Роли: SELLER, ADMIN.",
+        "x-roles": [
+          "SELLER",
+          "ADMIN"
+        ],
+        "responses": {
+          "201": {
+            "description": "Успешно",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Идентификатор запроса"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "405": {
+            "$ref": "#/components/responses/Error405"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoCreate"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ProductStatus": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE",
+          "ARCHIVED"
+        ]
+      },
+      "OrderStatus": {
+        "type": "string",
+        "enum": [
+          "CREATED",
+          "PAYMENT_PENDING",
+          "PAID",
+          "SHIPPED",
+          "COMPLETED",
+          "CANCELED"
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "USER",
+          "SELLER",
+          "ADMIN"
+        ]
+      },
+      "ProductCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "price",
+          "stock",
+          "category",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0.01,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "stock": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProductStatus"
+          }
+        }
+      },
+      "ProductUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "price",
+          "stock",
+          "category",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0.01,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "stock": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProductStatus"
+          }
+        }
+      },
+      "ProductResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "description",
+          "price",
+          "stock",
+          "category",
+          "status",
+          "seller_id",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0.01,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "stock": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProductStatus"
+          },
+          "seller_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "x-db-row": true
+      },
+      "ProductPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "totalElements",
+          "page",
+          "size"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductResponse"
+            }
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "OrderItemInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "product_id",
+          "quantity"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 999
+          }
+        }
+      },
+      "OrderCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemInput"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          },
+          "promo_code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{4,20}$",
+            "nullable": true
+          }
+        }
+      },
+      "OrderUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemInput"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          }
+        }
+      },
+      "OrderItemResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "product_id",
+          "quantity",
+          "price_at_order"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 999
+          },
+          "price_at_order": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0.01,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          }
+        }
+      },
+      "OrderResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "user_id",
+          "status",
+          "promo_code_id",
+          "total_amount",
+          "discount_amount",
+          "created_at",
+          "updated_at",
+          "items"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "promo_code_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "total_amount": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "discount_amount": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemResponse"
+            }
+          }
+        }
+      },
+      "OrderTransition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          }
+        }
+      },
+      "PromoCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "discount_type",
+          "discount_value",
+          "min_order_amount",
+          "max_uses",
+          "valid_from",
+          "valid_until",
+          "active"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{4,20}$"
+          },
+          "discount_type": {
+            "type": "string",
+            "enum": [
+              "PERCENTAGE",
+              "FIXED_AMOUNT"
+            ]
+          },
+          "discount_value": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0.01,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "min_order_amount": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "max_uses": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PromoResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "code",
+          "discount_type",
+          "discount_value",
+          "min_order_amount",
+          "max_uses",
+          "valid_from",
+          "valid_until",
+          "active",
+          "current_uses"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{4,20}$"
+          },
+          "discount_type": {
+            "type": "string",
+            "enum": [
+              "PERCENTAGE",
+              "FIXED_AMOUNT"
+            ]
+          },
+          "discount_value": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0.01,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "min_order_amount": {
+            "type": "number",
+            "format": "decimal",
+            "minimum": 0,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01
+          },
+          "max_uses": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "valid_from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "current_uses": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
+        },
+        "x-db-row": true
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "SELLER"
+            ],
+            "default": "USER"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "refresh_token"
+        ],
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "x-db-row": true
+      },
+      "TokenPair": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "access_token",
+          "refresh_token",
+          "token_type",
+          "expires_in"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "refresh_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 1800
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error_code",
+          "message"
+        ],
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "enum": [
+              "PRODUCT_NOT_FOUND",
+              "PRODUCT_INACTIVE",
+              "ORDER_NOT_FOUND",
+              "ORDER_LIMIT_EXCEEDED",
+              "ORDER_HAS_ACTIVE",
+              "INVALID_STATE_TRANSITION",
+              "INSUFFICIENT_STOCK",
+              "PROMO_CODE_INVALID",
+              "PROMO_CODE_MIN_AMOUNT",
+              "ORDER_OWNERSHIP_VIOLATION",
+              "VALIDATION_ERROR",
+              "TOKEN_EXPIRED",
+              "TOKEN_INVALID",
+              "REFRESH_TOKEN_INVALID",
+              "ACCESS_DENIED",
+              "EMAIL_ALREADY_EXISTS",
+              "PROMO_CODE_EXISTS",
+              "INTERNAL_ERROR",
+              "NOT_FOUND",
+              "METHOD_NOT_ALLOWED"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error400": {
+        "description": "VALIDATION_ERROR",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Error401": {
+        "description": "TOKEN_EXPIRED, TOKEN_INVALID, REFRESH_TOKEN_INVALID",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Error403": {
+        "description": "ORDER_OWNERSHIP_VIOLATION, ACCESS_DENIED",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Error404": {
+        "description": "PRODUCT_NOT_FOUND, ORDER_NOT_FOUND, NOT_FOUND",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Error405": {
+        "description": "METHOD_NOT_ALLOWED",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Error409": {
+        "description": "PRODUCT_INACTIVE, ORDER_HAS_ACTIVE, INVALID_STATE_TRANSITION, INSUFFICIENT_STOCK, EMAIL_ALREADY_EXISTS, PROMO_CODE_EXISTS",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Error422": {
+        "description": "PROMO_CODE_INVALID, PROMO_CODE_MIN_AMOUNT",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Error429": {
+        "description": "ORDER_LIMIT_EXCEEDED",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "Error500": {
+        "description": "INTERNAL_ERROR",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-Id": {
+            "description": "Идентификатор запроса",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-error-statuses": {
+    "PRODUCT_NOT_FOUND": 404,
+    "PRODUCT_INACTIVE": 409,
+    "ORDER_NOT_FOUND": 404,
+    "ORDER_LIMIT_EXCEEDED": 429,
+    "ORDER_HAS_ACTIVE": 409,
+    "INVALID_STATE_TRANSITION": 409,
+    "INSUFFICIENT_STOCK": 409,
+    "PROMO_CODE_INVALID": 422,
+    "PROMO_CODE_MIN_AMOUNT": 422,
+    "ORDER_OWNERSHIP_VIOLATION": 403,
+    "VALIDATION_ERROR": 400,
+    "TOKEN_EXPIRED": 401,
+    "TOKEN_INVALID": 401,
+    "REFRESH_TOKEN_INVALID": 401,
+    "ACCESS_DENIED": 403,
+    "EMAIL_ALREADY_EXISTS": 409,
+    "PROMO_CODE_EXISTS": 409,
+    "INTERNAL_ERROR": 500,
+    "NOT_FOUND": 404,
+    "METHOD_NOT_ALLOWED": 405
+  }
+}

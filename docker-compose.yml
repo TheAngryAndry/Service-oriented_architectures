@@ -1,14 +1,65 @@
 name: marketplace-architecture
-
 services:
+  postgres:
+    image: postgres:17.5-bookworm
+    environment:
+      POSTGRES_DB: marketplace
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marketplace-local}
+    volumes:
+      - marketplace-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketplace -d marketplace"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: redgate/flyway:11.8.2
+    command: migrate
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/marketplace
+      FLYWAY_USER: marketplace
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:-marketplace-local}
+      FLYWAY_CONNECT_RETRIES: 30
+    volumes:
+      - ./services/orders/migrations:/flyway/sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   orders:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://marketplace:${POSTGRES_PASSWORD:-marketplace-local}@postgres:5432/marketplace
+      JWT_SECRET: ${JWT_SECRET:-local-homework-secret-change-before-deploy-32-bytes}
+      ORDER_INTERVAL_MINUTES: ${ORDER_INTERVAL_MINUTES:-1}
     ports:
       - "127.0.0.1:${ORDERS_PORT:-8080}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     read_only: true
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  e2e:
+    profiles: [test]
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+    environment:
+      API_URL: http://orders:8080
+      PGHOST: postgres
+      PGUSER: marketplace
+      PGPASSWORD: ${POSTGRES_PASSWORD:-marketplace-local}
+      PGDATABASE: marketplace
+      JWT_SECRET: ${JWT_SECRET:-local-homework-secret-change-before-deploy-32-bytes}
+    depends_on:
+      orders:
+        condition: service_healthy
+
+volumes:
+  marketplace-data:
