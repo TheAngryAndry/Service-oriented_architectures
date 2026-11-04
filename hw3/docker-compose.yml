@@ -1,0 +1,151 @@
+name: soa-hw3
+x-redis: &redis
+  image: redis:7.4-bookworm
+  command: ["redis-server", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf", "--cluster-node-timeout", "2000", "--appendonly", "yes", "--protected-mode", "no"]
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 2s
+    timeout: 2s
+    retries: 30
+  restart: unless-stopped
+
+services:
+  flight-db:
+    image: postgres:17.5-bookworm
+    environment:
+      POSTGRES_DB: flights
+      POSTGRES_USER: flights
+      POSTGRES_PASSWORD: ${FLIGHT_DB_PASSWORD:-flights-local}
+    volumes: ["flight-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flights -d flights"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  booking-db:
+    image: postgres:17.5-bookworm
+    environment:
+      POSTGRES_DB: bookings
+      POSTGRES_USER: bookings
+      POSTGRES_PASSWORD: ${BOOKING_DB_PASSWORD:-bookings-local}
+    volumes: ["booking-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookings -d bookings"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  redis-1:
+    <<: *redis
+    volumes: ["redis-1-data:/data"]
+    networks:
+      default:
+        ipv4_address: 172.30.33.11
+  redis-2:
+    <<: *redis
+    volumes: ["redis-2-data:/data"]
+    networks:
+      default:
+        ipv4_address: 172.30.33.12
+  redis-3:
+    <<: *redis
+    volumes: ["redis-3-data:/data"]
+    networks:
+      default:
+        ipv4_address: 172.30.33.13
+  redis-4:
+    <<: *redis
+    volumes: ["redis-4-data:/data"]
+    networks:
+      default:
+        ipv4_address: 172.30.33.14
+  redis-5:
+    <<: *redis
+    volumes: ["redis-5-data:/data"]
+    networks:
+      default:
+        ipv4_address: 172.30.33.15
+  redis-6:
+    <<: *redis
+    volumes: ["redis-6-data:/data"]
+    networks:
+      default:
+        ipv4_address: 172.30.33.16
+  redis-init:
+    image: redis:7.4-bookworm
+    entrypoint: ["/bin/sh", "/cluster-init.sh"]
+    volumes: ["./docker/cluster-init.sh:/cluster-init.sh:ro"]
+    depends_on:
+      redis-1: {condition: service_healthy}
+      redis-2: {condition: service_healthy}
+      redis-3: {condition: service_healthy}
+      redis-4: {condition: service_healthy}
+      redis-5: {condition: service_healthy}
+      redis-6: {condition: service_healthy}
+  flight:
+    build: {context: ., target: runtime}
+    image: soa-hw3-app
+    command: ["flight-service"]
+    environment:
+      DATABASE_URL: postgres://flights:${FLIGHT_DB_PASSWORD:-flights-local}@flight-db:5432/flights
+      GRPC_API_KEY: ${GRPC_API_KEY:-homework-local-api-key}
+      REDIS_CLUSTER_NODES: redis://redis-1:6379,redis://redis-2:6379,redis://redis-3:6379
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
+      CACHE_TIMEOUT_MS: ${CACHE_TIMEOUT_MS:-200}
+    ports: ["127.0.0.1:${FLIGHT_PORT:-50053}:50051"]
+    depends_on:
+      flight-db: {condition: service_healthy}
+      redis-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+  booking:
+    image: soa-hw3-app
+    build: {context: ., target: runtime}
+    command: ["booking-service"]
+    environment:
+      DATABASE_URL: postgres://bookings:${BOOKING_DB_PASSWORD:-bookings-local}@booking-db:5432/bookings
+      FLIGHT_GRPC_URL: http://flight:50051
+      GRPC_API_KEY: ${GRPC_API_KEY:-homework-local-api-key}
+      GRPC_TIMEOUT_MS: ${GRPC_TIMEOUT_MS:-2000}
+      RETRY_BASE_MS: ${RETRY_BASE_MS:-100}
+      CB_FAILURE_THRESHOLD: ${CB_FAILURE_THRESHOLD:-5}
+      CB_OPEN_MS: ${CB_OPEN_MS:-10000}
+    ports: ["127.0.0.1:${BOOKING_PORT:-8083}:8080"]
+    depends_on:
+      booking-db: {condition: service_healthy}
+      flight: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "2", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+  tests:
+    profiles: ["test"]
+    build: {context: ., target: test}
+    environment:
+      BOOKING_URL: http://booking:8080
+      FLIGHT_GRPC_URL: http://flight:50051
+      GRPC_API_KEY: ${GRPC_API_KEY:-homework-local-api-key}
+      FLIGHT_DATABASE_URL: postgres://flights:${FLIGHT_DB_PASSWORD:-flights-local}@flight-db:5432/flights
+      BOOKING_DATABASE_URL: postgres://bookings:${BOOKING_DB_PASSWORD:-bookings-local}@booking-db:5432/bookings
+      REDIS_CLUSTER_NODES: redis://redis-1:6379,redis://redis-2:6379,redis://redis-3:6379
+    depends_on:
+      booking: {condition: service_healthy}
+
+networks:
+  default:
+    ipam:
+      config: [{subnet: 172.30.33.0/24}]
+volumes:
+  flight-data:
+  booking-data:
+  redis-1-data:
+  redis-2-data:
+  redis-3-data:
+  redis-4-data:
+  redis-5-data:
+  redis-6-data:

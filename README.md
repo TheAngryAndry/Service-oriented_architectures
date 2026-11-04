@@ -1,4 +1,9 @@
-# Marketplace
+# Сервис-ориентированные архитектуры
+
+[ДЗ 3: Flight Booking — Rust, gRPC, PostgreSQL, Redis Cluster](hw3/README.md).
+Код, запуск, ER-диаграммы и тесты находятся в `hw3/`.
+
+## ДЗ 1–2. Marketplace
 
 Rust + Axum, PostgreSQL, Flyway. Текущая версия — ДЗ 2: товары, заказы,
 промокоды, JWT и роли. Каркас ДЗ 1 без бизнес-логики —

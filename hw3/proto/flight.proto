@@ -1,0 +1,77 @@
+syntax = "proto3";
+package flight.v1;
+import "google/protobuf/timestamp.proto";
+
+// Every RPC requires x-api-key metadata.
+// INVALID_ARGUMENT: malformed IDs, IATA/date/quantity/status.
+// NOT_FOUND: unknown flight.
+// RESOURCE_EXHAUSTED: insufficient seats.
+// FAILED_PRECONDITION: non-scheduled flight or already released booking ID.
+// ALREADY_EXISTS: booking_id reused with different flight/quantity.
+// UNAUTHENTICATED: missing/wrong API key.
+// UNAVAILABLE/DEADLINE_EXCEEDED: transient infrastructure failure; safe to retry.
+service FlightService {
+  rpc SearchFlights(SearchFlightsRequest) returns (SearchFlightsResponse);
+  rpc GetFlight(GetFlightRequest) returns (Flight);
+  // booking_id is an idempotency key; identical active reservation is returned.
+  rpc ReserveSeats(ReserveSeatsRequest) returns (SeatReservation);
+  // Idempotent, including unknown booking IDs (creates a cancellation fence).
+  rpc ReleaseReservation(ReleaseReservationRequest) returns (ReleaseReservationResponse);
+  rpc UpdateFlight(UpdateFlightRequest) returns (Flight);
+}
+enum FlightStatus {
+  FLIGHT_STATUS_UNSPECIFIED = 0;
+  SCHEDULED = 1;
+  DEPARTED = 2;
+  CANCELLED = 3;
+  COMPLETED = 4;
+}
+enum ReservationStatus {
+  RESERVATION_STATUS_UNSPECIFIED = 0;
+  ACTIVE = 1;
+  RELEASED = 2;
+  EXPIRED = 3;
+}
+message Flight {
+  string id = 1;
+  string flight_number = 2;
+  string airline_code = 3;
+  string airline_name = 4;
+  string origin = 5;
+  string destination = 6;
+  google.protobuf.Timestamp departure_time = 7;
+  google.protobuf.Timestamp arrival_time = 8;
+  int32 total_seats = 9;
+  int32 available_seats = 10;
+  int64 price_minor = 11; // RUB kopecks; integer arithmetic, never floating point.
+  string currency = 12;
+  FlightStatus status = 13;
+}
+message SearchFlightsRequest {
+  string origin = 1;
+  string destination = 2;
+  optional string date = 3; // YYYY-MM-DD in UTC; omitted means all dates.
+}
+message SearchFlightsResponse { repeated Flight flights = 1; }
+message GetFlightRequest { string id = 1; }
+message ReserveSeatsRequest {
+  string flight_id = 1;
+  string booking_id = 2;
+  int32 seat_count = 3;
+}
+message SeatReservation {
+  string id = 1;
+  string flight_id = 2;
+  string booking_id = 3;
+  int32 seat_count = 4;
+  ReservationStatus status = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+message ReleaseReservationRequest { string booking_id = 1; }
+message ReleaseReservationResponse { ReservationStatus status = 1; }
+message UpdateFlightRequest {
+  string id = 1;
+  optional int64 price_minor = 2;
+  optional int32 total_seats = 3;
+  optional FlightStatus status = 4;
+}
