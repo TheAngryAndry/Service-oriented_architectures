@@ -1,0 +1,40 @@
+@startuml
+!include <C4/C4_Container>
+LAYOUT_TOP_DOWN()
+title Variant A — Notification Platform / C4 Container
+
+Person(customer, "Bank customer", "Receives transaction notifications")
+System_Ext(bank, "Bank services", "Payments, transfers; transactional outbox")
+System_Ext(app, "Bank mobile app", "Local inbox and authenticated delivery ACK")
+System_Ext(providers, "Delivery providers", "FCM / APNs, SMS-A, SMS-B, email")
+
+System_Boundary(platform, "Notification Platform — critical delivery") {
+  Container(api, "Ingress API", "Java 21 / Spring Boot", "Validates and durably accepts notifications; status API")
+  Container(orchestrator, "Orchestrator", "Java 21 / Spring Boot", "State machine, outbox relay, timers, reconciliation")
+  ContainerQueue(queue, "Critical task queues", "RabbitMQ 4 / quorum queues", "Replicated delivery commands; manual ACK")
+  Container(adapters, "Delivery Adapters", "Java 21 / Spring Boot", "Separate push / SMS / email worker pools; attempt claims")
+  Container(receipts, "Receipt API", "Java 21 / Spring Boot", "Authenticates and persists callbacks and app ACK")
+  ContainerDb(db, "Delivery ledger", "PostgreSQL 17 / HA", "Notifications, attempts, receipts, outbox, transitions")
+  Container(prefs, "Preferences", "Java / durable profile store", "Verified contacts, consent and channel preferences")
+  ContainerDb(cache, "Cache and quotas", "Redis 7", "Short-lived policy cache and provider rate limits")
+}
+
+Rel(customer, app, "Views inbox", "App UI")
+Rel(bank, api, "Submits event with stable ID", "HTTPS / JSON")
+Rel(api, db, "Commits notification + outbox", "SQL / TLS")
+Rel(orchestrator, db, "Claims due work; commits transitions", "SQL / TLS")
+Rel(orchestrator, prefs, "Reads policy and contacts", "HTTPS")
+Rel(orchestrator, queue, "Publishes commands; consumes receipt events", "AMQP / TLS")
+Rel(queue, adapters, "Dispatches attempt IDs", "AMQP / TLS")
+Rel(adapters, db, "Claims attempt; records outcome", "SQL / TLS")
+Rel(adapters, cache, "Checks rate limit", "RESP / TLS")
+Rel(adapters, prefs, "Rechecks contact and consent", "HTTPS")
+Rel(adapters, providers, "Sends; queries status", "HTTPS")
+Rel(providers, customer, "Delivers SMS / email", "Carrier / mail")
+Rel(providers, app, "Delivers push", "OS push transport")
+Rel(providers, receipts, "Reports delivery status", "Signed HTTPS webhook")
+Rel(app, receipts, "Confirms local receipt", "Authenticated HTTPS")
+Rel(receipts, db, "Commits receipt + outbox", "SQL / TLS")
+
+SHOW_LEGEND()
+@enduml

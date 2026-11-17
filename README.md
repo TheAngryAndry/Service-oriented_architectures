@@ -1,5 +1,7 @@
 # Сервис-ориентированные архитектуры
 
+[Notification Platform: требования, архитектурные решения и RFC гарантированной доставки](hw4/README.md).
+
 [ДЗ 3: Flight Booking — Rust, gRPC, PostgreSQL, Redis Cluster](hw3/README.md).
 Код, запуск, ER-диаграммы и тесты находятся в `hw3/`.
 

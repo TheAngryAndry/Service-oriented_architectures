@@ -1,0 +1,50 @@
+@startuml
+title Variant B — Durable workflow and primary push delivery
+autonumber
+hide footbox
+skinparam maxMessageSize 240
+skinparam sequenceMessageAlign center
+participant "Bank service\n+ source outbox" as Bank
+participant "Ingress API" as API
+database "Business registry" as DB
+participant "Start / Signal Relay" as Relay
+participant "Temporal Server\n+ durable history" as T
+participant "Workflow Worker" as W
+participant "Activity Worker" as A
+participant "FCM / APNs" as P
+participant "Mobile app" as App
+participant "Receipt API" as R
+
+Bank -> Bank : Commit transaction + outbox
+Bank -> API : Submit stable event_id
+API -> DB : Commit event key, notification, start-outbox
+API --> Bank : 202 notification_id (t0)
+Relay -> DB : Read start-outbox
+Relay -> T : StartWorkflow(id = notification_id)
+T -> T : Persist start; reject duplicate execution
+T --> Relay : Started / already exists
+Relay -> DB : Mark start-outbox done
+T -> W : Workflow task (polled)
+W -> T : Schedule policy Activity, then SendPush + deadline
+T -> A : Activity task (polled)
+A -> DB : Reserve stable attempt_id
+A -> P : Send push
+P --> A : Accepted + provider_message_id
+A -> DB : Commit attempt result
+A -> T : Activity completed: PROVIDER_ACCEPTED
+P -> App : Push
+App -> App : Deduplicate; persist local inbox
+App -> R : Authenticated ACK
+R -> DB : Commit receipt + signal-outbox
+R --> App : 200
+Relay -> T : Signal receipt_id, notification_id, evidence
+T -> T : Persist signal
+T --> Relay : Signal accepted
+Relay -> DB : Mark signal-outbox done
+T -> W : Resume with receipt signal
+W -> T : Confirm; cancel timer; schedule projection Activity
+T -> A : Update projection (idempotent)
+A -> DB : Commit CONFIRMED + audit
+A -> T : Activity complete
+W -> T : Complete workflow
+@enduml

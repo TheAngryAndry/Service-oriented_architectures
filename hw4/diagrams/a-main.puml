@@ -1,0 +1,43 @@
+@startuml
+title Variant A — Primary push delivery
+autonumber
+hide footbox
+skinparam maxMessageSize 240
+skinparam sequenceMessageAlign center
+participant "Bank service\n+ source outbox" as Bank
+participant "Ingress API" as API
+database "PostgreSQL" as DB
+participant "Orchestrator\n+ outbox relay" as O
+queue "RabbitMQ" as Q
+participant "Push Adapter" as A
+participant "FCM / APNs" as P
+participant "Mobile app" as App
+participant "Receipt API" as R
+
+Bank -> Bank : Commit transaction + source outbox
+Bank -> API : POST stable event_id, recipient, template
+API -> DB : BEGIN; insert event key, notification, outbox; COMMIT
+DB --> API : Durable commit (t0)
+API --> Bank : 202 notification_id
+O -> DB : Read intake outbox; commit route + planned attempt
+O -> Q : Publish SendPush(attempt_id)
+Q --> O : Publisher confirm
+O -> DB : Mark outbox published
+Q -> A : SendPush(attempt_id)
+A -> DB : Check generation and no confirmation; claim DISPATCHING
+DB --> A : Permission committed
+A -> P : Send push with notification_id (t1)
+P --> A : Accepted + provider_message_id
+A -> DB : Commit WAITING_RECEIPT
+A -> Q : Consumer ACK
+note over A,P : Provider acceptance is not final delivery
+P -> App : Push notification
+App -> App : Deduplicate ID; persist local inbox
+App -> R : Authenticated ACK(notification_id, attempt token)
+R -> DB : Commit receipt + outbox
+R --> App : 200
+O -> DB : Lock notification; validate evidence;
+O -> DB : Commit CONFIRMED + transition (t2);
+note over O,DB : Cancel unclaimed steps. Receipt outbox processing
+note over O,DB : is idempotent and recoverable after a crash.
+@enduml

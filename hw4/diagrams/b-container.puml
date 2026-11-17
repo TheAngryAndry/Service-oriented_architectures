@@ -1,0 +1,43 @@
+@startuml
+!include <C4/C4_Container>
+LAYOUT_TOP_DOWN()
+title Variant B — Notification Platform / C4 Container
+
+Person(customer, "Bank customer", "Receives transaction notifications")
+System_Ext(bank, "Bank services", "Payments, transfers; transactional outbox")
+System_Ext(app, "Bank mobile app", "Local inbox and authenticated delivery ACK")
+System_Ext(providers, "Delivery providers", "FCM / APNs, SMS-A, SMS-B, email")
+
+System_Boundary(platform, "Notification Platform — critical delivery") {
+  Container(api, "Ingress and Status API", "Java 21 / Spring Boot", "Durable intake and status projection")
+  Container(relay, "Start and Signal Relay", "Java 21 / Temporal SDK", "Retries workflow starts and receipt signals")
+  Container(temporal, "Temporal Server", "Temporal / gRPC", "Durable history, task queues and timers")
+  Container(workflows, "Workflow Workers", "Java 21 / Temporal SDK", "One route owner per notification; deterministic decisions")
+  Container(activities, "Activity Workers", "Java 21 / Temporal SDK", "Channel calls, status queries, projection updates")
+  Container(receipts, "Receipt API", "Java 21 / Spring Boot", "Validates callbacks; persists signal outbox")
+  ContainerDb(registry, "Business registry", "PostgreSQL 17 / HA", "Event keys, attempts, receipts, outboxes, read projection")
+  ContainerDb(history, "Temporal persistence", "PostgreSQL 17 / HA", "Workflow history and SQL visibility; separate database")
+  Container(prefs, "Preferences", "Java / durable profile store", "Verified contacts, consent and policy versions")
+  ContainerDb(cache, "Cache and quotas", "Redis 7", "Provider rate limits and short-lived cache")
+}
+
+Rel(customer, app, "Views inbox", "App UI")
+Rel(bank, api, "Submits stable event ID", "HTTPS / JSON")
+Rel(api, registry, "Commits intake + start-outbox", "SQL / TLS")
+Rel(relay, registry, "Reads and marks outbox records", "SQL / TLS")
+Rel(relay, temporal, "Starts workflow; sends signals", "gRPC / TLS")
+Rel(temporal, history, "Persists execution", "SQL / TLS")
+Rel(workflows, temporal, "Polls tasks; schedules activities and timers", "gRPC / TLS")
+Rel(activities, temporal, "Polls activities; reports results", "gRPC / TLS")
+Rel(activities, registry, "Claims attempts; updates projection", "SQL / TLS")
+Rel(activities, prefs, "Reads current policy and contacts", "HTTPS")
+Rel(activities, cache, "Checks rate limit", "RESP / TLS")
+Rel(activities, providers, "Sends; queries status", "HTTPS")
+Rel(providers, customer, "Delivers SMS / email", "Carrier / mail")
+Rel(providers, app, "Delivers push", "OS push transport")
+Rel(providers, receipts, "Reports status", "Signed HTTPS webhook")
+Rel(app, receipts, "Confirms local receipt", "Authenticated HTTPS")
+Rel(receipts, registry, "Commits receipt + signal-outbox", "SQL / TLS")
+
+SHOW_LEGEND()
+@enduml

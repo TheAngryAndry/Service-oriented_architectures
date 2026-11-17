@@ -1,0 +1,50 @@
+@startuml
+title Variant A — Push timeout, SMS provider failover, late ACK
+autonumber
+hide footbox
+skinparam maxMessageSize 240
+skinparam sequenceMessageAlign center
+participant "Scheduler / Orchestrator\n+ outbox relay" as O
+database "PostgreSQL" as DB
+queue "RabbitMQ" as Q
+participant "SMS Adapter" as A
+participant "SMS-A" as PA
+participant "SMS-B" as PB
+participant "Receipt API" as R
+participant "Mobile app" as App
+
+note over O,App : Existing notification; push was accepted, no app ACK.
+O -> DB : At t0 + 2 s: lock due notification
+alt Already CONFIRMED
+  DB --> O : No work; skip failover
+else No confirmation
+  O -> DB : Commit next generation, SMS-A attempt + outbox
+  O -> Q : Publish SMS-A attempt; wait for confirm
+  Q --> O : Confirm
+  Q -> A : Attempt ID
+  A -> DB : Check state; claim attempt; commit
+  A -> PA : Send SMS (target <= t0 + 3 s)
+  PA --> A : Definitive rejection, not accepted
+  A -> DB : Commit FAILED + outcome outbox
+  A -> Q : ACK
+  O -> DB : Lock state; commit SMS-B attempt + outbox
+  O -> Q : Publish SMS-B attempt; wait for confirm
+  Q --> O : Confirm
+  Q -> A : SMS-B attempt ID
+  A -> DB : Claim B after checking no confirmation
+  A -> PB : Send with stable attempt_id
+  PB --> A : Accepted + provider_message_id
+  A -> DB : Commit WAITING_RECEIPT
+  A -> Q : ACK
+  PB -> R : Signed delivered DLR
+  R -> DB : Commit receipt + outbox
+  R --> PB : 200
+  O -> DB : Process receipt; commit CONFIRMED
+end
+App -> R : Late push ACK
+R -> DB : Persist duplicate-channel evidence + outbox
+R --> App : 200
+O -> DB : Keep CONFIRMED; no email or new attempts
+note over O,App : If an ACK wins the DB lock before the next claim,
+note over O,App : the next send is suppressed. An already permitted SMS cannot be recalled.
+@enduml

@@ -1,0 +1,56 @@
+@startuml
+title Variant B — Durable timeout and SMS failover
+autonumber
+hide footbox
+skinparam maxMessageSize 240
+skinparam sequenceMessageAlign center
+participant "Temporal Server\n+ durable history" as T
+participant "Workflow Worker" as W
+participant "Activity Worker" as A
+database "Business registry" as DB
+participant "SMS-A" as PA
+participant "SMS-B" as PB
+participant "Receipt API\n+ signal relay" as R
+participant "Mobile app" as App
+
+note over T,App : Push pending. Workflow worker restarts;
+note over T,App : history and absolute deadline survive.
+T -> W : Replay; push timer fired at t0 + 2 s
+alt A valid ACK was recorded before the timer decision
+  W -> T : Confirm; cancel pending sends
+else No valid confirmation
+  W -> T : Schedule SMS-A Activity (target start <= t0 + 3 s)
+  T -> A : SMS-A task (polled)
+  A -> DB : Reserve stable attempt_id
+  A -> PA : Send SMS
+  PA --> A : Definitive rejection before acceptance
+  A -> DB : Commit FAILED
+  A -> T : Activity result: definitive failure
+  T -> W : Resume with failure
+  W -> T : Schedule SMS-B Activity
+  T -> A : SMS-B task (polled)
+  A -> DB : Reserve next attempt
+  A -> PB : Send SMS
+  PB --> A : Accepted + provider_message_id
+  A -> DB : Commit WAITING_RECEIPT
+  A -> T : Activity completed: accepted
+  PB -> R : Signed delivered DLR
+  R -> DB : Commit receipt + signal-outbox
+  R --> PB : 200 after commit
+  R -> T : Durable retry of receipt signal
+  T --> R : Signal persisted
+  T -> W : Resume with delivery evidence
+  W -> T : Confirm; cancel timers; project result
+  T -> A : Idempotent projection Activity
+  A -> DB : Commit CONFIRMED + audit
+  A -> T : Projection complete
+  W -> T : Complete workflow
+end
+App -> R : Late push ACK
+R -> DB : Persist late evidence
+R -> T : Signal existing workflow only
+T --> R : Already closed; do not start again
+R -> DB : Mark late receipt handled; keep CONFIRMED
+note over T,PB : Activity timeout with unknown provider result requires
+note over T,PB : status reconciliation, not a blind automatic resend.
+@enduml
