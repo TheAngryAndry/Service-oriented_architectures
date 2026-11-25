@@ -106,10 +106,15 @@ Runner создаёт отдельный Compose project, отключает г�
 
 Тесты проверяют все поля события через API → Kafka → ClickHouse, дедупликацию,
 валидацию, DAU, среднее время, конверсию, D1/D7, повторный UPSERT, материализацию,
-повторный экспорт и содержимое объекта. Файлы: `tests/e2e.rs`, unit в `src/lib.rs`.
+повторный экспорт и содержимое объекта, доступность datasource Grafana и SQL всех
+панелей provisioned dashboard через API Grafana. Дополнительно `tests/resilience.py`
+останавливает лидера Kafka, проверяет доставку и восстановление ISR, отказы S3/PG,
+автоматическое расписание и последовательности генератора. Файлы: `tests/e2e.rs`, unit в `src/lib.rs`.
 
 Остановка демо: `docker compose down`. Удаление демо-данных: `docker compose down -v`.
 
 S3 экспорт использует curl с AWS Signature V4; endpoint и credentials задаются
 через S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY. RustFS запущен в локальном
 демонстрационном режиме с одним диском; это не отказоустойчивое S3-хранилище.
+
+Сверка всех критериев и сценарий защиты: [VERIFICATION.md](VERIFICATION.md).

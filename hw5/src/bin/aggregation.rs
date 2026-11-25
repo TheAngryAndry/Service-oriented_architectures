@@ -7,6 +7,7 @@ use axum::{
 use chrono::{Duration as Days, NaiveDate, Utc};
 use cinema_analytics::{ch, env};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use sqlx::Row;
 use std::{
     sync::Arc,
@@ -78,7 +79,9 @@ async fn export(a: &App, date: NaiveDate) -> anyhow::Result<()> {
     anyhow::ensure!(!rows.is_empty(), "no metrics for {date}; calculate first");
     let data:Vec<_>=rows.iter().map(|r|serde_json::json!({"date":date,"metric":r.get::<String,_>("metric"),"dimension":r.get::<String,_>("dimension"),"value":r.get::<f64,_>("value"),"computed_at":r.get::<chrono::DateTime<Utc>,_>("computed_at")})).collect();
     let path = format!("/tmp/aggregates-{}.json", uuid::Uuid::new_v4());
-    tokio::fs::write(&path, serde_json::to_vec_pretty(&data)?).await?;
+    let payload = serde_json::to_vec_pretty(&data)?;
+    let hash_header = format!("x-amz-content-sha256:{:x}", Sha256::digest(&payload));
+    tokio::fs::write(&path, payload).await?;
     let target = format!(
         "{}/movie-analytics/daily/{date}/aggregates.json",
         env("S3_ENDPOINT", "http://s3:9000")
@@ -99,6 +102,10 @@ async fn export(a: &App, date: NaiveDate) -> anyhow::Result<()> {
             "aws:amz:us-east-1:s3",
             "--user",
             &credentials,
+            "--header",
+            &hash_header,
+            "--header",
+            "Content-Type: application/json",
             "--upload-file",
             &path,
             &target,

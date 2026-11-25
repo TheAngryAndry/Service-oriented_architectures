@@ -5,7 +5,7 @@ activity AS (SELECT DISTINCT user_id,toDate(timestamp) AS active FROM events WHE
 retention AS (
  SELECT toUInt8(day_number) AS age,uniqExact(c.user_id) AS total,
  uniqExactIf(c.user_id,a.active=addDays(c.cohort,day_number)) AS returned
- FROM cohorts c CROSS JOIN (SELECT number AS day_number FROM numbers(8))
+ FROM cohorts c CROSS JOIN (SELECT number AS day_number FROM numbers(8)) AS days
  LEFT JOIN activity a ON c.user_id=a.user_id
  WHERE c.cohort=toDate('{date}') GROUP BY age
 )

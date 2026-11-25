@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 export COMPOSE_PROJECT_NAME="soa-hw5-test-$$"
 export GENERATE_EVENTS=false
+export AGGREGATION_INTERVAL_SECONDS=5
 # Isolated volumes and network; remove published ports to coexist with the demo.
 override=$(mktemp)
 python3 - <<'PY' > "$override"
@@ -24,4 +25,6 @@ trap cleanup EXIT
 "${compose[@]}" --profile test run --build --rm tests
 # Assert the exported document exists and has all mandatory metric names.
 date=$(date -u -d '30 days ago' +%F)
-"${compose[@]}" exec -T aggregation curl -fsS --aws-sigv4 aws:amz:us-east-1:s3 -u cinema:cinema-local-secret "http://s3:9000/movie-analytics/daily/$date/aggregates.json" | python3 -c 'import json,sys; x=json.load(sys.stdin); names={r["metric"] for r in x}; assert {"dau","conversion","avg_watch_seconds","retention_d1","retention_d7","movie_views"} <= names; assert all("computed_at" in r and "date" in r for r in x)'
+"${compose[@]}" exec -T aggregation curl --fail-with-body --silent --show-error --max-time 30 --header x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 --aws-sigv4 aws:amz:us-east-1:s3 -u cinema:cinema-local-secret "http://s3:9000/movie-analytics/daily/$date/aggregates.json" | python3 -c 'import json,sys; x=json.load(sys.stdin); names={r["metric"] for r in x}; assert {"dau","conversion","avg_watch_seconds","retention_d1","retention_d7","movie_views"} <= names; assert all("computed_at" in r and "date" in r for r in x)'
+
+python3 tests/resilience.py "${compose[@]}"

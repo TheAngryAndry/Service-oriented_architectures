@@ -87,7 +87,7 @@
       "command": [
         "bash",
         "-ec",
-        "kafka-topics --bootstrap-server kafka-1:9092 --create --if-not-exists --topic movie-events --partitions 3 --replication-factor 2 --config min.insync.replicas=1"
+        "kafka-topics --bootstrap-server kafka-1:9092 --create --if-not-exists --topic movie-events --partitions 3 --replication-factor 2 --config min.insync.replicas=1\nkafka-topics --bootstrap-server kafka-1:9092 --create --if-not-exists --topic _schemas --partitions 1 --replication-factor 3 --config cleanup.policy=compact"
       ]
     },
     "schema-registry": {
@@ -111,7 +111,8 @@
         "timeout": "5s",
         "retries": 60,
         "start_period": "20s"
-      }
+      },
+      "restart": "on-failure"
     },
     "clickhouse": {
       "image": "clickhouse/clickhouse-server:25.3",
@@ -366,7 +367,7 @@
       "entrypoint": [
         "/bin/sh",
         "-ec",
-        "curl -fsS --aws-sigv4 aws:amz:us-east-1:s3 -u cinema:cinema-local-secret --head http://s3:9000/movie-analytics || curl -fsS --aws-sigv4 aws:amz:us-east-1:s3 -u cinema:cinema-local-secret -X PUT http://s3:9000/movie-analytics"
+        "curl --fail-with-body --silent --show-error --max-time 30 --header x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 --aws-sigv4 aws:amz:us-east-1:s3 -u cinema:cinema-local-secret --head http://s3:9000/movie-analytics || curl --fail-with-body --silent --show-error --max-time 30 --header x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 --aws-sigv4 aws:amz:us-east-1:s3 -u cinema:cinema-local-secret -X PUT http://s3:9000/movie-analytics"
       ]
     }
   },

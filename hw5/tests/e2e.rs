@@ -88,6 +88,7 @@ async fn api_kafka_clickhouse_all_fields_and_validation() {
     wait(&e).await;
     let s=ch(&format!("SELECT toString(event_id) AS event_id,user_id,movie_id,event_type,toUnixTimestamp64Milli(timestamp) AS millis,device_type,session_id,progress_seconds FROM raw_events FINAL WHERE event_id='{}' FORMAT JSONEachRow",e.event_id)).await.unwrap();
     let v: Value = serde_json::from_str(s.trim()).unwrap();
+    assert_eq!(v["event_id"], e.event_id.to_string());
     assert_eq!(v["user_id"], e.user_id);
     assert_eq!(v["movie_id"], e.movie_id);
     assert_eq!(v["event_type"], e.event_type);
@@ -157,6 +158,13 @@ async fn metrics_retention_recalculation_and_s3_export() {
         fixture(&u, &session, "VIEW_FINISHED", 30, 1200),
         fixture(&u, "d1", "VIEW_STARTED", 29, 0),
         fixture(&u, "d7", "VIEW_STARTED", 23, 0),
+        fixture(
+            &uuid::Uuid::new_v4().to_string(),
+            "no-return",
+            "VIEW_STARTED",
+            30,
+            0,
+        ),
     ];
     for e in &events {
         send(e).await;
@@ -180,11 +188,18 @@ async fn metrics_retention_recalculation_and_s3_export() {
             .unwrap();
         assert!(r.status().is_success(), "{}", r.text().await.unwrap());
         for (metric, expected) in [
-            ("dau", 1.0),
+            ("dau", 2.0),
             ("avg_watch_seconds", 1200.0),
-            ("conversion", 1.0),
-            ("retention_d1", 1.0),
-            ("retention_d7", 1.0),
+            ("conversion", 0.5),
+            ("retention_d0", 1.0),
+            ("retention_d1", 0.5),
+            ("retention_d2", 0.0),
+            ("retention_d3", 0.0),
+            ("retention_d4", 0.0),
+            ("retention_d5", 0.0),
+            ("retention_d6", 0.0),
+            ("events_processed", 3.0),
+            ("retention_d7", 0.5),
         ] {
             let value: f64 = sqlx::query_scalar(
                 "SELECT value FROM daily_metrics WHERE date=$1 AND metric=$2 AND dimension=''",
@@ -209,5 +224,68 @@ async fn metrics_retention_recalculation_and_s3_export() {
     }
     // Read back S3 through the export runtime, from the test runner's Compose command.
     let data=ch(&format!("SELECT value FROM daily_metrics FINAL WHERE date='{date}' AND metric='retention_d7' FORMAT JSONEachRow")).await.unwrap();
-    assert!(data.contains('1'));
+    let materialized: Value = serde_json::from_str(data.trim()).unwrap();
+    assert_eq!(materialized["value"], json!(0.5));
+}
+
+#[tokio::test]
+#[ignore = "requires Compose; use ./test.sh"]
+async fn grafana_datasource_and_provisioned_dashboard_work() {
+    let http = client();
+    let dashboard: Value = http
+        .get("http://grafana:3000/api/dashboards/uid/cinema")
+        .basic_auth("admin", Some("cinema-local-admin"))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let panels = dashboard["dashboard"]["panels"].as_array().unwrap();
+    assert!(panels.len() >= 3);
+    assert!(
+        panels
+            .iter()
+            .any(|p| p["title"] == "Retention Cohort Heatmap")
+    );
+    for panel in panels {
+        let sql = panel["targets"][0]["rawSql"].as_str().unwrap();
+        assert!(sql.contains("daily_metrics"));
+        ch(sql).await.unwrap();
+        let mut query = panel["targets"][0].clone();
+        query["datasource"] = panel["datasource"].clone();
+        let result: Value = http
+            .post("http://grafana:3000/api/ds/query")
+            .basic_auth("admin", Some("cinema-local-admin"))
+            .json(&json!({"queries":[query],"from":"now-90d","to":"now"}))
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(result["results"]["A"]["error"].is_null(), "{result}");
+        assert!(
+            !result["results"]["A"]["frames"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "{result}"
+        );
+    }
+    let response = http
+        .get("http://grafana:3000/api/datasources/uid/clickhouse/health")
+        .basic_auth("admin", Some("cinema-local-admin"))
+        .send()
+        .await
+        .unwrap();
+    assert!(
+        response.status().is_success(),
+        "{}",
+        response.text().await.unwrap()
+    );
 }

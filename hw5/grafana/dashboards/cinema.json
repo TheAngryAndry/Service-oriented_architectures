@@ -22,9 +22,9 @@
       "targets": [
         {
           "refId": "A",
-          "queryType": "sql",
+          "queryType": "table",
           "editorType": "sql",
-          "rawSql": "SELECT date AS Cohort,maxOrNullIf(value,metric='retention_d0') AS \"Day 0\",maxOrNullIf(value,metric='retention_d1') AS \"Day 1\",maxOrNullIf(value,metric='retention_d2') AS \"Day 2\",maxOrNullIf(value,metric='retention_d3') AS \"Day 3\",maxOrNullIf(value,metric='retention_d4') AS \"Day 4\",maxOrNullIf(value,metric='retention_d5') AS \"Day 5\",maxOrNullIf(value,metric='retention_d6') AS \"Day 6\",maxOrNullIf(value,metric='retention_d7') AS \"Day 7\" FROM daily_metrics FINAL WHERE startsWith(metric,'retention_d') GROUP BY date ORDER BY date DESC",
+          "rawSql": "SELECT date AS Cohort,maxOrNullIf(value,metric='retention_d0') AS \"Day 0\",maxOrNullIf(value,metric='retention_d1') AS \"Day 1\",maxOrNullIf(value,metric='retention_d2') AS \"Day 2\",maxOrNullIf(value,metric='retention_d3') AS \"Day 3\",maxOrNullIf(value,metric='retention_d4') AS \"Day 4\",maxOrNullIf(value,metric='retention_d5') AS \"Day 5\",maxOrNullIf(value,metric='retention_d6') AS \"Day 6\",maxOrNullIf(value,metric='retention_d7') AS \"Day 7\" FROM daily_metrics FINAL WHERE startsWith(metric,'retention_d') GROUP BY date HAVING maxIf(value,metric='retention_d0')>0 ORDER BY date DESC",
           "format": 1
         }
       ],
@@ -81,6 +81,21 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "\u2014",
+                        "color": "#181b1f"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -131,6 +146,21 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "\u2014",
+                        "color": "#181b1f"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -181,6 +211,21 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "\u2014",
+                        "color": "#181b1f"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -231,6 +276,21 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "\u2014",
+                        "color": "#181b1f"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -281,6 +341,21 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "\u2014",
+                        "color": "#181b1f"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -331,6 +406,21 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "\u2014",
+                        "color": "#181b1f"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -381,6 +471,21 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "\u2014",
+                        "color": "#181b1f"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -431,6 +536,21 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "\u2014",
+                        "color": "#181b1f"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           }
@@ -454,7 +574,7 @@
       "targets": [
         {
           "refId": "A",
-          "queryType": "sql",
+          "queryType": "table",
           "editorType": "sql",
           "rawSql": "SELECT date,maxIf(value,metric='dau') AS DAU,maxIf(value,metric='conversion') AS Conversion,maxIf(value,metric='avg_watch_seconds') AS AverageSeconds FROM daily_metrics FINAL GROUP BY date ORDER BY date DESC",
           "format": 1
@@ -485,7 +605,7 @@
       "targets": [
         {
           "refId": "A",
-          "queryType": "sql",
+          "queryType": "table",
           "editorType": "sql",
           "rawSql": "SELECT date,dimension AS Movie,value AS Views FROM daily_metrics FINAL WHERE metric='movie_views' ORDER BY date DESC,Views DESC LIMIT 100",
           "format": 1
