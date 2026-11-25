@@ -1,0 +1,381 @@
+{
+  "name": "soa-hw5",
+  "services": {
+    "kafka-1": {
+      "image": "confluentinc/cp-kafka:7.8.0",
+      "hostname": "kafka-1",
+      "environment": {
+        "CLUSTER_ID": "MkU3OEVBNTcwNTJENDM2Qk",
+        "KAFKA_NODE_ID": "1",
+        "KAFKA_PROCESS_ROLES": "broker,controller",
+        "KAFKA_CONTROLLER_QUORUM_VOTERS": "1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093",
+        "KAFKA_LISTENERS": "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093",
+        "KAFKA_ADVERTISED_LISTENERS": "PLAINTEXT://kafka-1:9092",
+        "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
+        "KAFKA_CONTROLLER_LISTENER_NAMES": "CONTROLLER",
+        "KAFKA_INTER_BROKER_LISTENER_NAME": "PLAINTEXT",
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "2",
+        "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": "2",
+        "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": "1",
+        "KAFKA_DEFAULT_REPLICATION_FACTOR": "2",
+        "KAFKA_MIN_INSYNC_REPLICAS": "1",
+        "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "false",
+        "KAFKA_LOG_DIRS": "/var/lib/kafka/data"
+      },
+      "volumes": [
+        "kafka-1:/var/lib/kafka/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      }
+    },
+    "kafka-2": {
+      "image": "confluentinc/cp-kafka:7.8.0",
+      "hostname": "kafka-2",
+      "environment": {
+        "CLUSTER_ID": "MkU3OEVBNTcwNTJENDM2Qk",
+        "KAFKA_NODE_ID": "2",
+        "KAFKA_PROCESS_ROLES": "broker,controller",
+        "KAFKA_CONTROLLER_QUORUM_VOTERS": "1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093",
+        "KAFKA_LISTENERS": "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093",
+        "KAFKA_ADVERTISED_LISTENERS": "PLAINTEXT://kafka-2:9092",
+        "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
+        "KAFKA_CONTROLLER_LISTENER_NAMES": "CONTROLLER",
+        "KAFKA_INTER_BROKER_LISTENER_NAME": "PLAINTEXT",
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "2",
+        "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": "2",
+        "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": "1",
+        "KAFKA_DEFAULT_REPLICATION_FACTOR": "2",
+        "KAFKA_MIN_INSYNC_REPLICAS": "1",
+        "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "false",
+        "KAFKA_LOG_DIRS": "/var/lib/kafka/data"
+      },
+      "volumes": [
+        "kafka-2:/var/lib/kafka/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      }
+    },
+    "kafka-init": {
+      "image": "confluentinc/cp-kafka:7.8.0",
+      "depends_on": {
+        "kafka-1": {
+          "condition": "service_healthy"
+        },
+        "kafka-2": {
+          "condition": "service_healthy"
+        },
+        "kafka-3": {
+          "condition": "service_healthy"
+        }
+      },
+      "command": [
+        "bash",
+        "-ec",
+        "kafka-topics --bootstrap-server kafka-1:9092 --create --if-not-exists --topic movie-events --partitions 3 --replication-factor 2 --config min.insync.replicas=1"
+      ]
+    },
+    "schema-registry": {
+      "image": "confluentinc/cp-schema-registry:7.8.0",
+      "environment": {
+        "SCHEMA_REGISTRY_HOST_NAME": "schema-registry",
+        "SCHEMA_REGISTRY_LISTENERS": "http://0.0.0.0:8081",
+        "SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS": "kafka-1:9092,kafka-2:9092"
+      },
+      "depends_on": {
+        "kafka-init": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8081/subjects >/dev/null"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      }
+    },
+    "clickhouse": {
+      "image": "clickhouse/clickhouse-server:25.3",
+      "environment": {
+        "CLICKHOUSE_PASSWORD": "cinema-local",
+        "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT": "1"
+      },
+      "volumes": [
+        "clickhouse:/var/lib/clickhouse",
+        "./sql/clickhouse.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro"
+      ],
+      "depends_on": {
+        "schema-registry": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "clickhouse-client --password cinema-local --query \"SELECT 1\""
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      },
+      "ports": [
+        "127.0.0.1:8125:8123"
+      ]
+    },
+    "postgres": {
+      "image": "postgres:17.5-bookworm",
+      "environment": {
+        "POSTGRES_USER": "cinema",
+        "POSTGRES_PASSWORD": "cinema-local",
+        "POSTGRES_DB": "cinema"
+      },
+      "volumes": [
+        "postgres:/var/lib/postgresql/data",
+        "./sql/postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U cinema -d cinema"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      }
+    },
+    "producer": {
+      "build": {
+        "context": ".",
+        "target": "runtime"
+      },
+      "command": [
+        "producer"
+      ],
+      "restart": "on-failure",
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8080/health"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      },
+      "ports": [
+        "127.0.0.1:8085:8080"
+      ],
+      "depends_on": {
+        "schema-registry": {
+          "condition": "service_healthy"
+        },
+        "clickhouse": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "GENERATE_EVENTS": "${GENERATE_EVENTS:-true}"
+      }
+    },
+    "aggregation": {
+      "build": {
+        "context": ".",
+        "target": "runtime"
+      },
+      "command": [
+        "aggregation"
+      ],
+      "restart": "on-failure",
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8080/health"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      },
+      "ports": [
+        "127.0.0.1:8086:8080"
+      ],
+      "depends_on": {
+        "clickhouse": {
+          "condition": "service_healthy"
+        },
+        "postgres": {
+          "condition": "service_healthy"
+        },
+        "s3-init": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "environment": {
+        "AGGREGATION_INTERVAL_SECONDS": "${AGGREGATION_INTERVAL_SECONDS:-300}"
+      }
+    },
+    "grafana": {
+      "image": "grafana/grafana:11.6.0",
+      "environment": {
+        "GF_INSTALL_PLUGINS": "grafana-clickhouse-datasource 4.8.0",
+        "GF_SECURITY_ADMIN_USER": "admin",
+        "GF_SECURITY_ADMIN_PASSWORD": "cinema-local-admin"
+      },
+      "ports": [
+        "127.0.0.1:3005:3000"
+      ],
+      "volumes": [
+        "./grafana/provisioning:/etc/grafana/provisioning:ro",
+        "./grafana/dashboards:/var/lib/grafana/dashboards:ro"
+      ],
+      "depends_on": {
+        "clickhouse": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "wget -q -O /dev/null http://localhost:3000/api/health"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      }
+    },
+    "tests": {
+      "profiles": [
+        "test"
+      ],
+      "build": {
+        "context": ".",
+        "target": "test"
+      },
+      "environment": {
+        "PRODUCER_URL": "http://producer:8080",
+        "AGGREGATION_URL": "http://aggregation:8080",
+        "CLICKHOUSE_URL": "http://clickhouse:8123",
+        "DATABASE_URL": "postgres://cinema:cinema-local@postgres/cinema"
+      },
+      "depends_on": {
+        "producer": {
+          "condition": "service_healthy"
+        },
+        "aggregation": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    "kafka-3": {
+      "image": "confluentinc/cp-kafka:7.8.0",
+      "hostname": "kafka-3",
+      "environment": {
+        "CLUSTER_ID": "MkU3OEVBNTcwNTJENDM2Qk",
+        "KAFKA_NODE_ID": "3",
+        "KAFKA_PROCESS_ROLES": "broker,controller",
+        "KAFKA_CONTROLLER_QUORUM_VOTERS": "1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093",
+        "KAFKA_LISTENERS": "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093",
+        "KAFKA_ADVERTISED_LISTENERS": "PLAINTEXT://kafka-3:9092",
+        "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
+        "KAFKA_CONTROLLER_LISTENER_NAMES": "CONTROLLER",
+        "KAFKA_INTER_BROKER_LISTENER_NAME": "PLAINTEXT",
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "2",
+        "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": "2",
+        "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": "1",
+        "KAFKA_DEFAULT_REPLICATION_FACTOR": "2",
+        "KAFKA_MIN_INSYNC_REPLICAS": "1",
+        "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "false",
+        "KAFKA_LOG_DIRS": "/var/lib/kafka/data"
+      },
+      "volumes": [
+        "kafka-3:/var/lib/kafka/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      }
+    },
+    "s3": {
+      "image": "rustfs/rustfs@sha256:ee717072290bec9b11abfc0365f8310b00df1cd9b3639943edae47bdef05044a",
+      "user": "0:0",
+      "environment": {
+        "RUSTFS_ACCESS_KEY": "cinema",
+        "RUSTFS_SECRET_KEY": "cinema-local-secret",
+        "RUSTFS_VOLUMES": "/data",
+        "RUSTFS_ADDRESS": "0.0.0.0:9000",
+        "RUSTFS_CONSOLE_ADDRESS": "0.0.0.0:9001",
+        "RUSTFS_CONSOLE_ENABLE": "true",
+        "RUSTFS_UNSAFE_BYPASS_DISK_CHECK": "true"
+      },
+      "volumes": [
+        "s3:/data"
+      ],
+      "ports": [
+        "127.0.0.1:9005:9000",
+        "127.0.0.1:9006:9001"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:9000/health"
+        ],
+        "interval": "5s",
+        "timeout": "5s",
+        "retries": 60,
+        "start_period": "20s"
+      }
+    },
+    "s3-init": {
+      "build": {
+        "context": ".",
+        "target": "runtime"
+      },
+      "depends_on": {
+        "s3": {
+          "condition": "service_healthy"
+        }
+      },
+      "entrypoint": [
+        "/bin/sh",
+        "-ec",
+        "curl -fsS --aws-sigv4 aws:amz:us-east-1:s3 -u cinema:cinema-local-secret --head http://s3:9000/movie-analytics || curl -fsS --aws-sigv4 aws:amz:us-east-1:s3 -u cinema:cinema-local-secret -X PUT http://s3:9000/movie-analytics"
+      ]
+    }
+  },
+  "volumes": {
+    "kafka-1": {},
+    "kafka-2": {},
+    "clickhouse": {},
+    "postgres": {},
+    "kafka-3": {},
+    "s3": {}
+  }
+}

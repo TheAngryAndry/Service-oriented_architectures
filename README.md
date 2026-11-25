@@ -1,5 +1,7 @@
 # Сервис-ориентированные архитектуры
 
+[ДЗ5: Online Cinema — Rust, Kafka, ClickHouse, PostgreSQL, Grafana, S3](hw5/README.md).
+
 [Notification Platform: требования, архитектурные решения и RFC гарантированной доставки](hw4/README.md).
 
 [ДЗ 3: Flight Booking — Rust, gRPC, PostgreSQL, Redis Cluster](hw3/README.md).

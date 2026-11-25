@@ -32,3 +32,5 @@
 .env.*
 *.log
 .DS_Store
+
+!/hw5/
